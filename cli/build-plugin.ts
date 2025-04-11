@@ -8,7 +8,7 @@ import * as path from 'path';
 import * as fs from 'fs/promises';
 import { spawn } from 'child_process';
 import chalk from 'chalk';
-
+import * as AdmZip from 'adm-zip';
 /**
  * Build options
  */

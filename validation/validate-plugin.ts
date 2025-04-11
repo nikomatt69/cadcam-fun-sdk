@@ -7,7 +7,7 @@
 
 import * as path from 'path';
 import * as fs from 'fs/promises';
-import AdmZip from 'adm-zip';
+import * as AdmZip from 'adm-zip';
 import { validateManifest } from '../validation/plugin-schema-validator';
 
 /**

@@ -76,6 +76,7 @@ export async function generatePluginProject(config: TemplateConfig): Promise<voi
     // Generate TypeScript configuration (if enabled)
     if (config.useTypeScript) {
       await generateTypeScriptConfig(config);
+      await generateTypeDefinitions(config); // Add this line
     }
     
     // Generate build configuration (webpack)
@@ -98,6 +99,7 @@ export async function generatePluginProject(config: TemplateConfig): Promise<voi
   }
 }
 
+
 /**
  * Create the basic directory structure for a plugin
  */
@@ -109,11 +111,109 @@ async function createDirectoryStructure(config: TemplateConfig): Promise<void> {
     'assets',
     'tests',
     'docs',
+    'types',
   ];
   
   for (const dir of directories) {
     await fs.mkdir(path.join(config.targetDir, dir), { recursive: true });
   }
+}
+
+/**
+ * Generate CADCAM type definitions
+ */
+async function generateTypeDefinitions(config: TemplateConfig): Promise<void> {
+  const typeDefinitions = `/**
+ * Type definitions for the CAD/CAM FUN Plugin API
+ * 
+ * These definitions provide TypeScript with information about the CADCAM namespace
+ * that is provided by the host application at runtime.
+ */
+
+declare namespace CADCAM {
+  /**
+   * Plugin initialization context provided during initialization
+   */
+  interface PluginInitializationContext {
+    /** Plugin metadata */
+    metadata: {
+      /** Plugin ID */
+      id: string;
+      /** Plugin name */
+      name: string;
+      /** Plugin version */
+      version: string;
+      /** Plugin description */
+      description: string;
+      /** Plugin author */
+      author: string;
+      /** Active permissions */
+      permissions: string[];
+    };
+    
+    /** Register a callback for plugin deactivation */
+    onDeactivation(callback: () => void): void;
+  }
+
+  /**
+   * Main Plugin API
+   */
+  interface PluginAPI {
+    /** Access to the model API */
+    model: {
+      /** Get the current selection */
+      getSelection(): Promise<string[]>;
+      /** Get entity by ID */
+      getEntityById(id: string): Promise<any>;
+      /** Register a callback for selection changes */
+      onSelectionChanged(callback: (selection: string[]) => void): { dispose(): void };
+    };
+    
+    /** Access to UI operations */
+    ui: {
+      /** Show a notification */
+      showNotification(message: string, options?: {
+        type?: 'info' | 'warning' | 'error' | 'success';
+        duration?: number;
+        actions?: Array<{ title: string; id: string }>;
+      }): Promise<void>;
+      
+      /** Show a dialog */
+      showDialog(options: {
+        title: string;
+        message: string;
+        type?: 'info' | 'warning' | 'error' | 'success' | 'question';
+        buttons?: Array<{ text: string; id: string; primary?: boolean }>;
+        defaultButton?: string;
+        cancelButton?: boolean;
+      }): Promise<{ 
+        buttonId: string;
+        cancelled: boolean;
+      }>;
+    };
+    
+    /** Host application access */
+    host: {
+      /** Log a message to the plugin console */
+      log(message: string, level?: 'info' | 'warn' | 'error'): void;
+      /** Notify the host that the plugin is ready */
+      notifyReady(): Promise<void>;
+    };
+    
+    /** Event system */
+    events: {
+      /** Subscribe to an event */
+      on(event: string, callback: (data: any) => void): { dispose(): void };
+    };
+  }
+}
+`;
+
+  // Write the type definition file
+  await fs.writeFile(
+    path.join(config.targetDir, 'types', 'cadcam.d.ts'),
+    typeDefinitions
+  );
 }
 
 /**
@@ -502,7 +602,7 @@ export function deactivate() {
   
   // Write the main file
   await fs.writeFile(
-    path.join(config.targetDir, 'src', `main${extension}`),
+    path.join(config.targetDir, 'src', `main`),
     mainContent
   );
 }
@@ -895,9 +995,6 @@ async function handleExampleCommand(api) {
   );
 }
 
-/**
- * Generate TypeScript configuration files
- */
 async function generateTypeScriptConfig(config: TemplateConfig): Promise<void> {
   const tsConfig = {
     compilerOptions: {
@@ -912,9 +1009,10 @@ async function generateTypeScriptConfig(config: TemplateConfig): Promise<void> {
       sourceMap: true,
       declaration: false,
       lib: ["DOM", "ESNext"],
-      types: ["node"]
+      typeRoots: ["./node_modules/@types", "./types"], // Add this
+      types: []  // Add this
     },
-    include: ["src/**/*"],
+    include: ["src/**/*", "types/**/*"], // Update to include types
     exclude: ["node_modules", "dist"]
   };
   
